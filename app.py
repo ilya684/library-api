@@ -17,8 +17,6 @@ def get_db_connection(config):
         conn_params["dbname"] = conn_params.pop("database")
     return psycopg2.connect(**conn_params, cursor_factory=RealDictCursor)
 
-
-
 def init_db(config):
     conn = get_db_connection(config)
     cur = conn.cursor()
@@ -141,33 +139,32 @@ def create_app(db_config=None):
         conn.close()
         return jsonify(new_book), 201
 
-	@app.route('/api/books', methods=['GET'])
-		def get_books():
-			conn = get_db_connection(app.config['DB_CONFIG'])
-			cur = conn.cursor()
-			
-			genre = request.args.get('genre')
-			author_id = request.args.get('author_id')
-			search = request.args.get('q') or request.args.get('search')
-			
-			query = "SELECT * FROM books WHERE 1=1"
-			params = []
-			
-			if genre:
-				query += " AND genre = %s"
-				params.append(genre)
-			if author_id:
-				query += " AND author_id = %s"
-				params.append(author_id)
-			if search:
-				query += " AND title ILIKE %s"
-				params.append(f"%{search}%")
-				
-			cur.execute(query + " ORDER BY id", tuple(params))
-			books = cur.fetchall()
-			cur.close()
-			conn.close()
-			return jsonify(books), 200
+    @app.route('/api/books', methods=['GET'])
+    def get_books():
+        conn = get_db_connection(app.config['DB_CONFIG'])
+        cur = conn.cursor()
+        genre = request.args.get('genre')
+        author_id = request.args.get('author_id')
+        search = request.args.get('q') or request.args.get('search')
+        
+        query = "SELECT * FROM books WHERE 1=1"
+        params = []
+        
+        if genre:
+            query += " AND genre = %s"
+            params.append(genre)
+        if author_id:
+            query += " AND author_id = %s"
+            params.append(author_id)
+        if search:
+            query += " AND title ILIKE %s"
+            params.append(f"%{search}%")
+            
+        cur.execute(query + " ORDER BY id", tuple(params))
+        books = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(books), 200
 
     @app.route('/api/books/<int:book_id>', methods=['GET'])
     def get_book(book_id):
