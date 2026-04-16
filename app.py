@@ -4,15 +4,20 @@ from flask import Flask, request, jsonify
 import os
 
 DEFAULT_DB_CONFIG = {
-    "dbname": "library_db",
-    "user": "postgres",
-    "password": "secret",
-    "host": "localhost",
-    "port": "5432"
+    "host": os.environ.get("POSTGRES_HOST", "localhost"),
+    "port": os.environ.get("POSTGRES_PORT", "5432"),
+    "database": os.environ.get("POSTGRES_DB", "library_test_db"), 
+    "user": os.environ.get("POSTGRES_USER", "postgres"),
+    "password": os.environ.get("POSTGRES_PASSWORD", "secret"),
 }
 
 def get_db_connection(config):
-    return psycopg2.connect(**config, cursor_factory=RealDictCursor)
+    conn_params = config.copy()
+    if "database" in conn_params:
+        conn_params["dbname"] = conn_params.pop("database")
+    return psycopg2.connect(**conn_params, cursor_factory=RealDictCursor)
+
+
 
 def init_db(config):
     conn = get_db_connection(config)
