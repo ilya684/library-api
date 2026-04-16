@@ -70,6 +70,48 @@ def create_app(db_config=None):
         conn.close()
         return jsonify(authors), 200
 
+    @app.route('/api/authors/<int:author_id>', methods=['GET'])
+    def get_author(author_id):
+        conn = get_db_connection(app.config['DB_CONFIG'])
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM authors WHERE id = %s", (author_id,))
+        author = cur.fetchone()
+        cur.close()
+        conn.close()
+        if author:
+            return jsonify(author), 200
+        return jsonify({"error": "Author not found"}), 404
+
+    @app.route('/api/authors/<int:author_id>', methods=['DELETE'])
+    def delete_author(author_id):
+        conn = get_db_connection(app.config['DB_CONFIG'])
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM authors WHERE id = %s", (author_id,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Author not found"}), 404
+        cur.execute("DELETE FROM authors WHERE id = %s", (author_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return '', 204
+
+    @app.route('/api/authors/<int:author_id>/books', methods=['GET'])
+    def get_author_books(author_id):
+        conn = get_db_connection(app.config['DB_CONFIG'])
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM authors WHERE id = %s", (author_id,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Author not found"}), 404
+        cur.execute("SELECT * FROM books WHERE author_id = %s", (author_id,))
+        books = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(books), 200
+
     @app.route('/api/books', methods=['POST'])
     def create_book():
         data = request.json
@@ -77,6 +119,13 @@ def create_app(db_config=None):
             return jsonify({"error": "title and created_by are required"}), 400
         conn = get_db_connection(app.config['DB_CONFIG'])
         cur = conn.cursor()
+        if data.get('author_id'):
+            cur.execute("SELECT id FROM authors WHERE id = %s", (data['author_id'],))
+            if not cur.fetchone():
+                cur.close()
+                conn.close()
+                return jsonify({"error": "Author not found"}), 400
+                
         cur.execute(
             "INSERT INTO books (title, genre, year_published, author_id, created_by) VALUES (%s, %s, %s, %s, %s) RETURNING *",
             (data['title'], data.get('genre'), data.get('year_published'), data.get('author_id'), data['created_by'])
@@ -91,11 +140,49 @@ def create_app(db_config=None):
     def get_books():
         conn = get_db_connection(app.config['DB_CONFIG'])
         cur = conn.cursor()
-        cur.execute("SELECT * FROM books ORDER BY id")
+        
+        search = request.args.get('search')
+        
+        query = "SELECT * FROM books WHERE 1=1"
+        params = []
+        
+        if genre:
+            query += " AND genre = %s"
+            params.append(genre)
+        if author_id:
+            query += " AND author_id = %s"
+            params.append(author_id)
+        if search:
+            query += " AND title ILIKE %s"
+            params.append(f"%{search}%")
+            
+        cur.execute(query + " ORDER BY id", tuple(params))
         books = cur.fetchall()
         cur.close()
         conn.close()
         return jsonify(books), 200
+
+    @app.route('/api/books/<int:book_id>', methods=['GET'])
+    def get_book(book_id):
+        conn = get_db_connection(app.config['DB_CONFIG'])
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM books WHERE id = %s", (book_id,))
+        book = cur.fetchone()
+        cur.close()
+        conn.close()
+        if book:
+            return jsonify(book), 200
+        return jsonify({"error": "Book not found"}), 404
+
+    @app.route('/api/books/<int:book_id>', methods=['DELETE'])
+    def delete_book(book_id):
+        conn = get_db_connection(app.config['DB_CONFIG'])
+        cur = conn.cursor()
+        cur.execute("DELETE FROM books WHERE id = %s", (book_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return '', 204
 
     return app
 
